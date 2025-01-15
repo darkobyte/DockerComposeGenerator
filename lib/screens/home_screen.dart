@@ -3,8 +3,12 @@ import 'package:flutter/services.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:yaml/yaml.dart';
 import 'dart:convert';
+import 'package:provider/provider.dart';
 import '../widgets/service_box.dart';
 import '../models/docker_service.dart';
+import '../widgets/yaml_editor.dart';
+import 'settings_screen.dart';
+import '../models/app_settings.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -15,52 +19,87 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   final List<DockerService> services = [];
+  bool _hasYamlError = false;
+  String _errorMessage = '';
 
   String _jsonToYaml(Map<String, dynamic> json) {
-    // Convert Map to YAML string
-    String yaml = 'version: "3"\nservices:\n';
+    String yaml = '';
     
-    json['services'].forEach((serviceName, serviceData) {
-      yaml += '  $serviceName:\n';
-      (serviceData as Map<String, dynamic>).forEach((key, value) {
-        if (value is List) {
-          yaml += '    $key:\n';
-          for (var item in value) {
-            yaml += '      - $item\n';
+    if (json.containsKey('version')) {
+      yaml += 'version: "${json['version']}"\n';
+    }
+    
+    yaml += 'services:\n';
+    
+    if (json['services'] != null) {
+      json['services'].forEach((serviceName, serviceData) {
+        yaml += '  $serviceName:\n';
+        (serviceData as Map<String, dynamic>).forEach((key, value) {
+          if (value is List) {
+            yaml += '    $key:\n';
+            for (var item in value) {
+              yaml += '      - $item\n';
+            }
+          } else if (value is Map) {
+            yaml += '    $key:\n';
+            value.forEach((k, v) {
+              yaml += '      $k: $v\n';
+            });
+          } else {
+            yaml += '    $key: $value\n';
           }
-        } else if (value is Map) {
-          yaml += '    $key:\n';
-          value.forEach((k, v) {
-            yaml += '      $k: $v\n';
-          });
-        } else {
-          yaml += '    $key: $value\n';
-        }
+        });
       });
-    });
+    }
     
     return yaml;
   }
 
   Map<String, dynamic> _yamlToJson(String yamlString) {
-    // Parse YAML string to Map
-    final yamlDoc = loadYaml(yamlString);
-    return json.decode(json.encode(yamlDoc));
+    try {
+      final yamlDoc = loadYaml(yamlString);
+      Map<String, dynamic> jsonData = {};
+      
+      if (yamlDoc is YamlMap) {
+        jsonData = _convertYamlToMap(yamlDoc);
+      } else {
+        throw 'Invalid YAML structure: document root must be a map';
+      }
+      
+      return jsonData;
+    } catch (e) {
+      throw 'Invalid YAML format: ${e.toString()}';
+    }
+  }
+
+  Map<String, dynamic> _convertYamlToMap(YamlMap yamlMap) {
+    Map<String, dynamic> result = {};
+    
+    yamlMap.forEach((key, value) {
+      if (value is YamlMap) {
+        result[key.toString()] = _convertYamlToMap(value);
+      } else if (value is YamlList) {
+        result[key.toString()] = value.map((item) => item.toString()).toList();
+      } else {
+        result[key.toString()] = value;
+      }
+    });
+    
+    return result;
   }
 
   @override
   Widget build(BuildContext context) {
+    final settings = context.watch<AppSettings>();
+    final bool showPreview = settings.showYamlPreview;
+    final bool showVersion = settings.showVersion;
+    
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.background,
       appBar: AppBar(
         backgroundColor: Theme.of(context).colorScheme.surface,
         title: const Text('Docker Compose Creator'),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.file_upload),
-            onPressed: _importCompose,
-            tooltip: 'Import Docker Compose',
-          ),
           IconButton(
             icon: const Icon(Icons.file_download),
             onPressed: _exportCompose,
@@ -95,46 +134,182 @@ class _HomeScreenState extends State<HomeScreen> {
               leading: const Icon(Icons.settings),
               title: const Text('Settings'),
               onTap: () {
-                // TODO: Implement settings
                 Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const SettingsScreen()),
+                );
               },
             ),
           ],
         ),
       ),
-      body: services.isEmpty
-          ? Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
+      body: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Left side - Visual Editor
+          Expanded(
+            flex: showPreview ? 1 : 2,
+            child: Stack(
+              children: [
+                AnimatedOpacity(
+                  duration: const Duration(milliseconds: 300),
+                  opacity: _hasYamlError ? 0.3 : 1.0,
+                  child: IgnorePointer(
+                    ignoring: _hasYamlError,
+                    child: services.isEmpty
+                        ? Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text(
+                                  'Add a service to get started',
+                                  style: Theme.of(context).textTheme.headlineSmall,
+                                ),
+                                const SizedBox(height: 16),
+                                ElevatedButton.icon(
+                                  onPressed: _addService,
+                                  icon: const Icon(Icons.add),
+                                  label: const Text('Add Service'),
+                                ),
+                              ],
+                            ),
+                          )
+                        : ListView.builder(
+                            padding: const EdgeInsets.all(16),
+                            itemCount: services.length,
+                            itemBuilder: (context, index) {
+                              return ServiceBox(
+                                service: services[index],
+                                onDelete: () => _deleteService(index),
+                                onChanged: _updateYamlFromServices,
+                              );
+                            },
+                          ),
+                  ),
+                ),
+                if (services.isNotEmpty)
+                  Positioned(
+                    right: 16,
+                    bottom: 16,
+                    child: FloatingActionButton(
+                      onPressed: _addService,
+                      child: const Icon(Icons.add),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          // Right side - YAML Editor (conditional)
+          if (showPreview)
+            Expanded(
+              flex: 1,
+              child: Stack(
                 children: [
-                  Text(
-                    'Add a service to get started',
-                    style: Theme.of(context).textTheme.headlineSmall,
+                  SizedBox.expand(
+                    child: YamlEditor(
+                      initialValue: _getServicesYaml(settings.showVersion),
+                      onChanged: (_) {}, // No-op since editor is read-only
+                      hasError: _hasYamlError,
+                      fontSize: settings.fontSize,
+                    ),
                   ),
-                  const SizedBox(height: 16),
-                  ElevatedButton.icon(
-                    onPressed: _addService,
-                    icon: const Icon(Icons.add),
-                    label: const Text('Add Service'),
-                  ),
+                  if (_hasYamlError)
+                    Positioned(
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      child: Material(
+                        elevation: 8,
+                        color: Theme.of(context).colorScheme.error,
+                        child: Padding(
+                          padding: const EdgeInsets.all(12),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.error_outline,
+                                color: Theme.of(context).colorScheme.onError,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  _errorMessage,
+                                  style: TextStyle(
+                                    color: Theme.of(context).colorScheme.onError,
+                                  ),
+                                ),
+                              ),
+                              IconButton(
+                                icon: Icon(
+                                  Icons.close,
+                                  color: Theme.of(context).colorScheme.onError,
+                                ),
+                                onPressed: () {
+                                  setState(() {
+                                    _hasYamlError = false;
+                                    _errorMessage = '';
+                                  });
+                                },
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
                 ],
               ),
-            )
-          : ListView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: services.length,
-              itemBuilder: (context, index) {
-                return ServiceBox(
-                  service: services[index],
-                  onDelete: () => _deleteService(index),
-                );
-              },
             ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _addService,
-        child: const Icon(Icons.add),
+        ],
       ),
     );
+  }
+
+  String _getServicesYaml(bool showVersion) {
+    final settings = context.read<AppSettings>();
+    final composeData = <String, dynamic>{};
+    
+    if (showVersion) {
+      composeData['version'] = settings.defaultVersion;
+    }
+    
+    composeData['services'] = {
+      for (var service in services)
+        if (service.name.isNotEmpty)
+          service.name: service.toJson()
+    };
+
+    return _jsonToYaml(composeData);
+  }
+
+  void _updateServicesFromYaml(String yamlContent) {
+    try {
+      final data = _yamlToJson(yamlContent);
+      if (data['services'] == null) {
+        throw 'Invalid docker-compose file format';
+      }
+
+      setState(() {
+        services.clear();
+        (data['services'] as Map).forEach((key, value) {
+          if (value is Map<String, dynamic>) {
+            final service = DockerService.fromJson(value);
+            service.name = key.toString();
+            services.add(service);
+          }
+        });
+        _hasYamlError = false;
+        _errorMessage = '';
+      });
+    } catch (e) {
+      setState(() {
+        _hasYamlError = true;
+        _errorMessage = 'Error: ${e.toString()}';
+      });
+    }
+  }
+
+  void _updateYamlFromServices() {
+    setState(() {}); // This will trigger a rebuild and update the YAML
   }
 
   void _addService() {
@@ -207,50 +382,5 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
     );
-  }
-
-  Future<void> _importCompose() async {
-    try {
-      final result = await FilePicker.platform.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: ['yml', 'yaml'],
-      );
-
-      if (result != null) {
-        final contents = utf8.decode(result.files.first.bytes!);
-        final data = _yamlToJson(contents);
-        
-        if (data['services'] == null) {
-          throw 'Invalid docker-compose file format';
-        }
-
-        setState(() {
-          services.clear();
-          (data['services'] as Map).forEach((key, value) {
-            final service = DockerService.fromJson(value as Map<String, dynamic>);
-            service.name = key as String;
-            services.add(service);
-          });
-        });
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Docker Compose file imported successfully')),
-        );
-      }
-    } catch (e) {
-      showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Error'),
-          content: Text('Failed to import file: $e'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('OK'),
-            ),
-          ],
-        ),
-      );
-    }
   }
 }

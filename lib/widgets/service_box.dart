@@ -4,11 +4,13 @@ import '../models/docker_service.dart';
 class ServiceBox extends StatefulWidget {
   final DockerService service;
   final VoidCallback onDelete;
+  final VoidCallback onChanged;
 
   const ServiceBox({
     super.key,
     required this.service,
     required this.onDelete,
+    required this.onChanged,
   });
 
   @override
@@ -18,6 +20,10 @@ class ServiceBox extends StatefulWidget {
 class _ServiceBoxState extends State<ServiceBox> {
   bool isExpanded = false;
   final _formKey = GlobalKey<FormState>();
+
+  void _notifyChange() {
+    widget.onChanged();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -35,7 +41,10 @@ class _ServiceBoxState extends State<ServiceBox> {
                   labelText: 'Service Name',
                   border: InputBorder.none,
                 ),
-                onChanged: (value) => widget.service.name = value,
+                onChanged: (value) {
+                  widget.service.name = value;
+                  _notifyChange();
+                },
               ),
               trailing: Row(
                 mainAxisSize: MainAxisSize.min,
@@ -53,9 +62,18 @@ class _ServiceBoxState extends State<ServiceBox> {
             ),
             if (isExpanded) ...[
               _buildSection('Basic Configuration', [
-                _buildTextField('Image', (v) => widget.service.image = v),
-                _buildTextField('Command', (v) => widget.service.command = v),
-                _buildTextField('Working Directory', (v) => widget.service.workingDir = v),
+                _buildTextField('Image', (v) {
+                  widget.service.image = v;
+                  _notifyChange();
+                }),
+                _buildTextField('Command', (v) {
+                  widget.service.command = v;
+                  _notifyChange();
+                }),
+                _buildTextField('Working Directory', (v) {
+                  widget.service.workingDir = v;
+                  _notifyChange();
+                }),
               ]),
               _buildSection('Environment', [
                 _buildMapEditor(
@@ -78,7 +96,10 @@ class _ServiceBoxState extends State<ServiceBox> {
                   'always',
                   'on-failure',
                   'unless-stopped',
-                ], (v) => widget.service.restart = v),
+                ], (v) {
+                  widget.service.restart = v;
+                  _notifyChange();
+                }),
                 _buildMapEditor(widget.service.deploy, 'Deploy Config', 'Key', 'Value'),
                 _buildListEditor(widget.service.depends_on, 'Depends On'),
               ]),
@@ -119,7 +140,10 @@ class _ServiceBoxState extends State<ServiceBox> {
           filled: true,
           fillColor: Theme.of(context).colorScheme.surface.withOpacity(0.5),
         ),
-        onChanged: onChanged,
+        onChanged: (value) {
+          onChanged(value);
+          _notifyChange();
+        },
       ),
     );
   }
@@ -139,6 +163,7 @@ class _ServiceBoxState extends State<ServiceBox> {
                 onPressed: () {
                   setState(() {
                     items.add('');
+                    _notifyChange();
                   });
                 },
               );
@@ -153,6 +178,7 @@ class _ServiceBoxState extends State<ServiceBox> {
                     onChanged: (value) {
                       setState(() {
                         items[index] = value;
+                        _notifyChange();
                       });
                     },
                   ),
@@ -162,6 +188,7 @@ class _ServiceBoxState extends State<ServiceBox> {
                   onPressed: () {
                     setState(() {
                       items.removeAt(index);
+                      _notifyChange();
                     });
                   },
                 ),
@@ -191,6 +218,7 @@ class _ServiceBoxState extends State<ServiceBox> {
         onChanged: (String? newValue) {
           if (newValue != null) {
             onChanged(newValue);
+            _notifyChange();
           }
         },
       ),
@@ -212,6 +240,7 @@ class _ServiceBoxState extends State<ServiceBox> {
                 onPressed: () {
                   setState(() {
                     map[''] = '';
+                    _notifyChange();
                   });
                 },
               );
@@ -228,6 +257,7 @@ class _ServiceBoxState extends State<ServiceBox> {
                         var value = map[key];
                         map.remove(key);
                         map[newKey] = value;
+                        _notifyChange();
                       });
                     },
                   ),
@@ -240,6 +270,7 @@ class _ServiceBoxState extends State<ServiceBox> {
                     onChanged: (value) {
                       setState(() {
                         map[key] = value;
+                        _notifyChange();
                       });
                     },
                   ),
@@ -249,6 +280,7 @@ class _ServiceBoxState extends State<ServiceBox> {
                   onPressed: () {
                     setState(() {
                       map.remove(key);
+                      _notifyChange();
                     });
                   },
                 ),
