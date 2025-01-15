@@ -17,6 +17,27 @@ class DockerService {
   List<String> dns = [];
   Map<String, String> secrets = {};
 
+  // Additional properties
+  Map<String, String> ulimits = {};
+  String? user;
+  Map<String, String> configs = {};
+  List<String> expose = [];
+  String? container_name;
+  bool? init;
+  Map<String, String> logging = {};
+  String? pid;
+  Map<String, String> security_opt = {};
+  Map<String, String> sysctls = {};
+  List<String> cap_add = [];
+  List<String> cap_drop = [];
+  Map<String, String> devices = {};
+  String? stop_grace_period;
+  String? stop_signal;
+  String? tmpfs;
+  bool? tty;
+  String? shm_size;
+  Map<String, String> build = {};
+
   static DockerService fromJson(Map<String, dynamic> json) {
     final service = DockerService();
     service.name = json['name'] ?? '';
@@ -36,29 +57,85 @@ class DockerService {
     service.privileged = json['privileged'];
     service.dns = List<String>.from(json['dns'] ?? []);
     service.secrets = Map<String, String>.from(json['secrets'] ?? {});
+
+    // Add new properties
+    service.ulimits = Map<String, String>.from(json['ulimits'] ?? {});
+    service.user = json['user'];
+    service.configs = Map<String, String>.from(json['configs'] ?? {});
+    service.expose = List<String>.from(json['expose'] ?? []);
+    service.container_name = json['container_name'];
+    service.init = json['init'];
+    service.logging = Map<String, String>.from(json['logging'] ?? {});
+    service.pid = json['pid'];
+    service.security_opt = Map<String, String>.from(json['security_opt'] ?? {});
+    service.sysctls = Map<String, String>.from(json['sysctls'] ?? {});
+    service.cap_add = List<String>.from(json['cap_add'] ?? []);
+    service.cap_drop = List<String>.from(json['cap_drop'] ?? []);
+    service.devices = Map<String, String>.from(json['devices'] ?? {});
+    service.stop_grace_period = json['stop_grace_period'];
+    service.stop_signal = json['stop_signal'];
+    service.tmpfs = json['tmpfs'];
+    service.tty = json['tty'];
+    service.shm_size = json['shm_size'];
+    service.build = Map<String, String>.from(json['build'] ?? {});
     return service;
   }
 
   Map<String, dynamic> toJson() {
     final Map<String, dynamic> data = {};
     
-    if (name.isNotEmpty) data['name'] = name;
-    if (image.isNotEmpty) data['image'] = image;
-    if (environment.isNotEmpty) data['environment'] = environment;
-    if (ports.isNotEmpty) data['ports'] = ports;
-    if (volumes.isNotEmpty) data['volumes'] = volumes;
-    if (labels.isNotEmpty) data['labels'] = labels;
-    if (command != null) data['command'] = command;
-    if (depends_on.isNotEmpty) data['depends_on'] = depends_on;
-    if (restart != 'no') data['restart'] = restart;
-    if (networks.isNotEmpty) data['networks'] = networks;
-    if (deploy.isNotEmpty) data['deploy'] = deploy;
-    if (workingDir != null) data['working_dir'] = workingDir;
-    if (entrypoint.isNotEmpty) data['entrypoint'] = entrypoint;
-    if (healthcheck.isNotEmpty) data['healthcheck'] = healthcheck;
-    if (privileged != null) data['privileged'] = privileged;
-    if (dns.isNotEmpty) data['dns'] = dns;
-    if (secrets.isNotEmpty) data['secrets'] = secrets;
+    void addIfNotEmpty(String key, dynamic value) {
+      if (value != null) {
+        if (value is String && value.isNotEmpty) {
+          data[key] = value;
+        } else if (value is List && value.isNotEmpty) {
+          data[key] = value;
+        } else if (value is Map && value.isNotEmpty) {
+          data[key] = value;
+        } else if (value is bool) {
+          data[key] = value;
+        }
+      }
+    }
+
+    addIfNotEmpty('name', name);
+    addIfNotEmpty('image', image);
+    addIfNotEmpty('environment', environment);
+    addIfNotEmpty('ports', ports);
+    addIfNotEmpty('volumes', volumes);
+    addIfNotEmpty('labels', labels);
+    addIfNotEmpty('command', command);
+    addIfNotEmpty('depends_on', depends_on);
+    addIfNotEmpty('restart', restart != 'no' ? restart : null);
+    addIfNotEmpty('networks', networks);
+    addIfNotEmpty('deploy', deploy);
+    addIfNotEmpty('working_dir', workingDir);
+    addIfNotEmpty('entrypoint', entrypoint);
+    addIfNotEmpty('healthcheck', healthcheck);
+    addIfNotEmpty('privileged', privileged);
+    addIfNotEmpty('dns', dns);
+    addIfNotEmpty('secrets', secrets);
+
+    // Add new properties to output
+    addIfNotEmpty('ulimits', ulimits);
+    addIfNotEmpty('user', user);
+    addIfNotEmpty('configs', configs);
+    addIfNotEmpty('expose', expose);
+    addIfNotEmpty('container_name', container_name);
+    addIfNotEmpty('init', init);
+    addIfNotEmpty('logging', logging);
+    addIfNotEmpty('pid', pid);
+    addIfNotEmpty('security_opt', security_opt);
+    addIfNotEmpty('sysctls', sysctls);
+    addIfNotEmpty('cap_add', cap_add);
+    addIfNotEmpty('cap_drop', cap_drop);
+    addIfNotEmpty('devices', devices);
+    addIfNotEmpty('stop_grace_period', stop_grace_period);
+    addIfNotEmpty('stop_signal', stop_signal);
+    addIfNotEmpty('tmpfs', tmpfs);
+    addIfNotEmpty('tty', tty);
+    addIfNotEmpty('shm_size', shm_size);
+    addIfNotEmpty('build', build);
 
     return data;
   }

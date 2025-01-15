@@ -103,6 +103,68 @@ class _ServiceBoxState extends State<ServiceBox> {
                 _buildMapEditor(widget.service.deploy, 'Deploy Config', 'Key', 'Value'),
                 _buildListEditor(widget.service.depends_on, 'Depends On'),
               ]),
+              _buildSection('Container Settings', [
+                _buildTextField('Container Name', (v) {
+                  widget.service.container_name = v;
+                  _notifyChange();
+                }),
+                _buildTextField('User', (v) {
+                  widget.service.user = v;
+                  _notifyChange();
+                }),
+                _buildBooleanSwitch('TTY', widget.service.tty ?? false, (v) {
+                  widget.service.tty = v;
+                  _notifyChange();
+                }),
+                _buildBooleanSwitch('Init', widget.service.init ?? false, (v) {
+                  widget.service.init = v;
+                  _notifyChange();
+                }),
+              ]),
+              _buildSection('Resource Limits', [
+                _buildMapEditor(widget.service.ulimits, 'Ulimits', 'Limit Name', 'Value'),
+                _buildTextField('Shared Memory Size', (v) {
+                  widget.service.shm_size = v;
+                  _notifyChange();
+                }),
+              ]),
+              _buildSection('Security', [
+                _buildMapEditor(widget.service.security_opt, 'Security Options', 'Option', 'Value'),
+                _buildMapEditor(widget.service.sysctls, 'Sysctls', 'Option', 'Value'),
+                _buildListEditor(widget.service.cap_add, 'Capabilities Add'),
+                _buildListEditor(widget.service.cap_drop, 'Capabilities Drop'),
+                _buildBooleanSwitch('Privileged', widget.service.privileged ?? false, (v) {
+                  widget.service.privileged = v;
+                  _notifyChange();
+                }),
+              ]),
+              _buildSection('Lifecycle', [
+                _buildTextField('Stop Grace Period', (v) {
+                  widget.service.stop_grace_period = v;
+                  _notifyChange();
+                }),
+                _buildTextField('Stop Signal', (v) {
+                  widget.service.stop_signal = v;
+                  _notifyChange();
+                }),
+              ]),
+              _buildSection('Additional Configuration', [
+                _buildMapEditor(widget.service.logging, 'Logging', 'Option', 'Value'),
+                _buildMapEditor(widget.service.configs, 'Configs', 'Config', 'Value'),
+                _buildMapEditor(widget.service.devices, 'Devices', 'Path', 'Permission'),
+                _buildTextField('PID', (v) {
+                  widget.service.pid = v;
+                  _notifyChange();
+                }),
+                _buildTextField('Tmpfs', (v) {
+                  widget.service.tmpfs = v;
+                  _notifyChange();
+                }),
+                _buildListEditor(widget.service.expose, 'Expose Ports'),
+              ]),
+              _buildSection('Build Configuration', [
+                _buildMapEditor(widget.service.build, 'Build', 'Option', 'Value'),
+              ]),
             ],
           ],
         ),
@@ -289,6 +351,26 @@ class _ServiceBoxState extends State<ServiceBox> {
           },
         ),
       ],
+    );
+  }
+
+  Widget _buildBooleanSwitch(String label, bool value, Function(bool) onChanged) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label),
+          Switch(
+            value: value,
+            onChanged: (newValue) {
+              setState(() {
+                onChanged(newValue);
+              });
+            },
+          ),
+        ],
+      ),
     );
   }
 }
