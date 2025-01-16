@@ -4,6 +4,7 @@ A modern, intuitive GUI application for creating and managing Docker Compose fil
 
 ![Flutter](https://img.shields.io/badge/flutter-%3E%3D3.6.0-red.svg)
 ![Platform](https://img.shields.io/badge/platform-windows%20%7C%20macos%20%7C%20linux-red.svg)
+![License](https://img.shields.io/badge/license-Custom_Open_Source-blue.svg)
 
 ## ✨ Features
 
@@ -66,6 +67,11 @@ lib/
 # Build for Windows
 flutter build windows
 
+# Create Windows Installer
+# 1. Install Inno Setup from https://jrsoftware.org/isdl.php
+# 2. Run the following command:
+iscc installer.iss
+
 # Build for macOS
 flutter build macos
 
@@ -85,3 +91,10 @@ flutter build linux
 - Service templates
 - Multi-file support
 - Docker Swarm configurations
+
+## 📜 License
+
+This project is licensed under a Custom Open Source License - see the [LICENSE](LICENSE) file for details.
+- You are free to use, modify, and distribute this software
+- You cannot sell this software or any derivative works
+- Credit to the original author (Darkobyte Software) must be maintained
